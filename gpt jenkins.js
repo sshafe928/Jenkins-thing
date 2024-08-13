@@ -782,94 +782,102 @@ const input = [
     "BFBFFFFRLL",
 ];
 
+// Function to convert code to a square number
+function getSquareNumber(code) {
+    // Split the code into row and column parts
+    const rowCode = code.slice(0, 7); // First 7 characters for row
+    const colCode = code.slice(7);    // Last 3 characters for column
 
-
-function separatestrings(string) {
-    const rowstrings = string.slice(0, 7);
-    const columnstrings = string.slice(7);
-    return { rowstrings, columnstrings };
-}
-
-function decodeString(encoded) {
-    const rowPart = encoded.slice(0, 7);
-    const columnPart = encoded.slice(7);
-
-    function decoding(part, lowerHalfChar, upperHalfChar, range) {
-        let lower = 0;
-        let upper = range - 1;
-
-        for (const char of part) {
-            const mid = Math.ceil((lower + upper) / 2);
-            if (char === lowerHalfChar) {
-                upper = mid - 1; // Adjusted calculation
-            } else if (char === upperHalfChar) {
-                lower = mid; // Adjusted calculation
-            }
+    // Determine the row by converting F/B to binary
+    let rowRange = [0, 127];
+    for (let char of rowCode) {
+        let mid = Math.floor((rowRange[0] + rowRange[1]) / 2);
+        if (char === 'F') {
+            rowRange[1] = mid; // Narrow down to the front half
+        } else {
+            rowRange[0] = mid + 1; // Narrow down to the back half
         }
-
-        return lower;
     }
+    const row = rowRange[0];
 
-    const row = decoding(rowPart, 'F', 'B', 127);
-    const column = decoding(columnPart, 'L', 'R', 7);
+    // Determine the column by converting L/R to binary
+    let colRange = [0, 7];
+    for (let char of colCode) {
+        let mid = Math.floor((colRange[0] + colRange[1]) / 2);
+        if (char === 'L') {
+            colRange[1] = mid; // Narrow down to the left half
+        } else {
+            colRange[0] = mid + 1; // Narrow down to the right half
+        }
+    }
+    const col = colRange[0];
 
-    return { row, column };
+    // Calculate the square number
+    return (row * 8) + col;
 }
 
-let highestID = -Infinity;
-let lowestID = Infinity;
+// Step 1: Finding the range of digging
+let minSquare = Infinity; // Start with a very high number
+let maxSquare = -Infinity; // Start with a very low number
+const squareNumbers = [];
 
-input.forEach(encoded => {
-    const { row, column } = decodeString(encoded);
-    const gridID = (row * 8) + column;
+input.forEach(log => {
+    const square = getSquareNumber(log);
+    squareNumbers.push(square);
 
-    if (gridID > highestID) {
-        highestID = gridID;
-    }
-
-    if (gridID < lowestID) {
-        lowestID = gridID;
-    }
+    if (square < minSquare) minSquare = square;
+    if (square > maxSquare) maxSquare = square;
 });
 
-input.forEach(encoded => {
-    const { row, column } = decodeString(encoded);
-    console.log(`Encoded: ${encoded}`);
-    console.log(`Row: ${row}`);
-    console.log(`Column: ${column}`);
+console.log("Lowest Square: ", minSquare);
+console.log("Highest Square: ", maxSquare);
 
-    let x = (row * 8) + column;
-    console.log(`Grid#: ${x}`);
-    console.log('---');
-    const sql = `INSERT INTO SeatAssignments (encoded, rowssss, column, grid#) VALUES ('${encoded}', ${row}, ${column}, ${x});`;
-    
-    console.log(sql);
-});
-
-
-
-console.log(`Highest ID: ${highestID}`);
-console.log(`Lowest ID: ${lowestID}`);
-
-
-// Task 2
-const existingGridNumbers = input.map(decodeString).map(({ row, column }) => (row * 8) + column);
-
-// Define the range of grid numbers
-const startID = 68;
-const endID = 847;
-
-// Create an array for all grid numbers in the range
-const allGridNumbers = [];
-for (let i = startID; i <= endID; i++) {
-    allGridNumbers.push(i);
+// Step 2: Identifying missing squares
+let missingSquares = [];
+for (let i = minSquare; i <= maxSquare; i++) {
+    if (!squareNumbers.includes(i)) {
+        missingSquares.push(i);
+    }
 }
 
-// Find which grid numbers are missing
-const missingGridNumbers = allGridNumbers.filter(id => !existingGridNumbers.includes(id));
+console.log("Missing Squares: ", missingSquares);
 
-// Print missing grid numbers
-console.log('Missing Grid Numbers:', missingGridNumbers);
+// Step 3: Backtracking to find coordinates of the missing square
+if (missingSquares.length > 0) {
+    const missingSquare = missingSquares[0]; // Assume there's only one missing square
+    const row = Math.floor(missingSquare / 8);
+    const col = missingSquare % 8;
 
+    console.log("Missing Square Row: ", row);
+    console.log("Missing Square Column: ", col);
+}
 
+// Step 4: Unlocking the safe with a 6-digit code
+const rows = squareNumbers.map(sq => Math.floor(sq / 8));
+const cols = squareNumbers.map(sq => sq % 8);
 
+const sumRows = rows.reduce((sum, num) => sum + num, 0);
+const sumCols = cols.reduce((sum, num) => sum + num, 0);
+
+let safeCode = (sumRows * sumCols).toString().replace(/0/g, ''); // Remove zeros
+
+console.log("Safe Code: ", safeCode);
+
+// Step 5: Visual representation of the yard
+const yard = Array(128).fill().map(() => Array(8).fill('.')); // Create a 128x8 grid
+
+squareNumbers.forEach(sq => {
+    const row = Math.floor(sq / 8);
+    const col = sq % 8;
+    yard[row][col] = '#'; // Mark dug squares
+});
+
+// Print the yard
+yard.forEach(row => console.log(row.join(' ')));
+
+// getSquareNumber(code): This function takes the encoded log (FBFBBFFRLR) and converts it into a square number.
+// Step 1: We iterate over each digging log, converting it into a square number, then determine the minimum and maximum square numbers.
+// Step 2: We check if any square numbers are missing between the minimum and maximum range.
+// Step 3: If there's a missing square, we calculate its row and column.
+// Step 4: We generate a 6-digit code by summing all row and column values of the dug squares and multiplying them.
+// Step 5: We visually represent the yard, marking dug squares with # and undug squares with ..
